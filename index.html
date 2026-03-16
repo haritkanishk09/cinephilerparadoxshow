@@ -59,6 +59,8 @@
         const Info = ({size, className}) => <i className={`fa-solid fa-circle-info ${className || ''}`} style={{fontSize: size}}></i>;
         const Calendar = ({size, className}) => <i className={`fa-solid fa-calendar-days ${className || ''}`} style={{fontSize: size}}></i>;
         const InfinityIcon = ({size, className}) => <i className={`fa-solid fa-infinity ${className || ''}`} style={{fontSize: size}}></i>;
+        const ChevronLeft = ({size, className}) => <i className={`fa-solid fa-chevron-left ${className || ''}`} style={{fontSize: size}}></i>;
+        const ChevronRight = ({size, className}) => <i className={`fa-solid fa-chevron-right ${className || ''}`} style={{fontSize: size}}></i>;
 
         // --- Components ---
         const Navbar = ({ view, setView }) => (
@@ -140,20 +142,49 @@
         };
 
         const HorizontalList = ({ title, items, onSelect }) => {
+          const scrollRef = useRef(null);
+
+          const scroll = (direction) => {
+            if (scrollRef.current) {
+              const { current } = scrollRef;
+              const scrollAmount = direction === 'left' ? -current.offsetWidth * 0.75 : current.offsetWidth * 0.75;
+              current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+            }
+          };
+
           if (!items || items.length === 0) return null;
           
           return (
-            <div className="mb-12">
+            <div className="mb-12 relative group">
               <h2 className="text-xl md:text-2xl font-bold text-white mb-6 flex items-center gap-3 px-4 lg:px-8">
                 <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
                 {title}
               </h2>
-              <div className="flex gap-4 overflow-x-auto px-4 lg:px-8 pb-8 snap-x hide-scrollbar">
-                {items.map(item => (
-                  <div key={item.id} className="min-w-[140px] md:min-w-[180px] lg:min-w-[200px] snap-start">
-                    <MovieCard item={item} onClick={onSelect} />
-                  </div>
-                ))}
+              <div className="relative">
+                <button 
+                  onClick={() => scroll('left')}
+                  className="absolute left-0 top-[40%] -translate-y-1/2 z-10 bg-black/70 hover:bg-indigo-600 text-white w-10 h-16 rounded-r-xl backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-300 hidden md:flex items-center justify-center border border-white/10 border-l-0 shadow-xl"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                
+                <div 
+                  ref={scrollRef}
+                  className="flex gap-4 overflow-x-auto px-4 lg:px-8 pb-8 snap-x hide-scrollbar"
+                >
+                  {items.map(item => (
+                    <div key={item.id} className="min-w-[140px] md:min-w-[180px] lg:min-w-[200px] snap-start">
+                      <MovieCard item={item} onClick={onSelect} />
+                    </div>
+                  ))}
+                </div>
+                
+                <button 
+                  onClick={() => scroll('right')}
+                  className="absolute right-0 top-[40%] -translate-y-1/2 z-10 bg-black/70 hover:bg-indigo-600 text-white w-10 h-16 rounded-l-xl backdrop-blur-md opacity-0 group-hover:opacity-100 transition-all duration-300 hidden md:flex items-center justify-center border border-white/10 border-r-0 shadow-xl"
+                >
+                  <ChevronRight size={20} />
+                </button>
               </div>
             </div>
           );
