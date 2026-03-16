@@ -1,0 +1,578 @@
+import React, { useState, useEffect, useRef } from 'react';
+import { Search, Home as HomeIcon, PlayCircle, ArrowLeft, Star, Tv, Film, Info, Calendar, Infinity as InfinityIcon } from 'lucide-react';
+
+// --- API Configuration ---
+const TMDB_KEY = "65ed25f3cfde7361bd51f6d498fb34a0";
+const TMDB_BASE_URL = "https://api.themoviedb.org/3";
+const IMG_BASE = "https://image.tmdb.org/t/p/w500";
+const IMG_ORIGINAL = "https://image.tmdb.org/t/p/original";
+
+// --- Custom CSS for scrollbars ---
+const ScrollbarStyles = () => (
+  <style>{`
+    .hide-scrollbar::-webkit-scrollbar {
+      display: none;
+    }
+    .hide-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
+    }
+  `}</style>
+);
+
+// --- Components ---
+
+const Navbar = ({ view, setView }) => (
+  <nav className="sticky top-0 z-50 bg-[#0a0c10]/80 backdrop-blur-xl border-b border-gray-800/50">
+    <div className="container mx-auto px-4 lg:px-8 h-16 flex items-center justify-between">
+      <div 
+        className="flex items-center gap-3 cursor-pointer group" 
+        onClick={() => setView('home')}
+      >
+        <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-violet-600 via-fuchsia-600 to-orange-500 p-[2px] shadow-[0_0_20px_rgba(192,38,211,0.4)] group-hover:shadow-[0_0_30px_rgba(192,38,211,0.6)] transition-all duration-300">
+          <div className="absolute inset-0 bg-[#0a0c10] rounded-[10px] opacity-80 group-hover:opacity-40 transition-opacity"></div>
+          <div className="relative flex items-center justify-center text-white">
+             <Film size={20} className="absolute -rotate-12 opacity-50 group-hover:rotate-0 group-hover:opacity-80 transition-all duration-500 text-orange-300" />
+             <InfinityIcon size={26} className="absolute text-fuchsia-400 opacity-100 group-hover:scale-110 group-hover:text-fuchsia-300 transition-all duration-500 drop-shadow-[0_0_8px_rgba(192,38,211,0.8)]" />
+          </div>
+        </div>
+        <span className="text-xl md:text-2xl font-black tracking-tighter flex items-center">
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-violet-400 to-fuchsia-400">Cinephiler</span>
+          <span className="text-transparent bg-clip-text bg-gradient-to-r from-fuchsia-400 to-orange-400 ml-1.5">Paradox</span>
+        </span>
+      </div>
+      <div className="flex space-x-1 sm:space-x-3">
+        <button 
+          onClick={() => setView('home')} 
+          className={`px-4 py-2 rounded-full flex items-center gap-2 transition-all duration-300 ${view === 'home' ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
+        >
+          <HomeIcon size={18} />
+          <span className="hidden sm:inline font-medium text-sm">Home</span>
+        </button>
+        <button 
+          onClick={() => setView('search')} 
+          className={`px-4 py-2 rounded-full flex items-center gap-2 transition-all duration-300 ${view === 'search' ? 'bg-white/10 text-white shadow-inner' : 'text-gray-400 hover:bg-white/5 hover:text-white'}`}
+        >
+          <Search size={18} />
+          <span className="hidden sm:inline font-medium text-sm">Discover</span>
+        </button>
+      </div>
+    </div>
+  </nav>
+);
+
+const MovieCard = ({ item, onClick }) => {
+  const title = item.title || item.name;
+  const date = item.release_date || item.first_air_date;
+  const year = date ? date.split('-')[0] : 'N/A';
+  const isTV = item.media_type === 'tv';
+  
+  return (
+    <div onClick={() => onClick(item)} className="group cursor-pointer flex flex-col gap-3 h-full">
+      <div className="relative aspect-[2/3] overflow-hidden rounded-xl bg-gray-800 shadow-lg">
+        <img 
+          src={item.poster_path ? `${IMG_BASE}${item.poster_path}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=random&size=500`} 
+          alt={title}
+          className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
+          loading="lazy"
+        />
+        {/* Rating Badge */}
+        <div className="absolute top-3 right-3 bg-black/70 backdrop-blur-md text-xs px-2.5 py-1.5 rounded-lg text-white font-bold flex items-center gap-1.5 shadow-xl">
+          <Star size={12} className="text-yellow-400 fill-yellow-400" />
+          {item.vote_average?.toFixed(1) || 'NR'}
+        </div>
+        {/* Type Badge */}
+        <div className="absolute top-3 left-3 bg-black/70 backdrop-blur-md text-xs px-2 py-1.5 rounded-lg text-white font-bold flex items-center gap-1.5 shadow-xl">
+          {isTV ? <Tv size={12} className="text-purple-400" /> : <Film size={12} className="text-indigo-400" />}
+        </div>
+        {/* Hover Overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end justify-center pb-6">
+          <div className="w-12 h-12 rounded-full bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-600/50 transform translate-y-4 group-hover:translate-y-0 transition-all duration-300">
+            <PlayCircle size={24} className="ml-1" />
+          </div>
+        </div>
+      </div>
+      <div className="flex flex-col flex-grow">
+        <h3 className="font-bold text-sm md:text-base line-clamp-1 text-gray-100 group-hover:text-indigo-400 transition-colors">{title}</h3>
+        <div className="flex items-center text-xs text-gray-500 mt-1 font-medium">
+          <Calendar size={12} className="mr-1.5 opacity-70" />
+          <span>{year}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const HorizontalList = ({ title, items, onSelect }) => {
+  if (!items || items.length === 0) return null;
+  
+  return (
+    <div className="mb-12">
+      <h2 className="text-xl md:text-2xl font-bold text-white mb-6 flex items-center gap-3 px-4 lg:px-8">
+        <div className="w-1.5 h-6 bg-indigo-600 rounded-full"></div>
+        {title}
+      </h2>
+      <div className="flex gap-4 overflow-x-auto px-4 lg:px-8 pb-8 snap-x hide-scrollbar">
+        {items.map(item => (
+          <div key={item.id} className="min-w-[140px] md:min-w-[180px] lg:min-w-[200px] snap-start">
+            <MovieCard item={item} onClick={onSelect} />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const HeroBanner = ({ item, onClick }) => {
+  if (!item) return <div className="w-full h-[60vh] md:h-[75vh] bg-gray-900 animate-pulse rounded-b-[2.5rem]"></div>;
+  
+  const title = item.title || item.name;
+  const isTV = item.media_type === 'tv';
+
+  return (
+    <div 
+      className="relative w-full h-[60vh] md:h-[75vh] overflow-hidden mb-12 cursor-pointer group rounded-b-[2.5rem] md:rounded-b-[4rem] shadow-2xl" 
+      onClick={() => onClick(item)}
+    >
+      <img 
+        src={`${IMG_ORIGINAL}${item.backdrop_path || item.poster_path}`} 
+        alt={title}
+        className="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105"
+      />
+      <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c10] via-[#0a0c10]/60 to-transparent" />
+      <div className="absolute inset-0 bg-gradient-to-r from-[#0a0c10]/90 via-[#0a0c10]/40 to-transparent" />
+      
+      <div className="absolute bottom-0 left-0 p-6 md:p-12 lg:px-20 lg:pb-20 w-full md:w-3/4 lg:w-2/3">
+        <div className="flex items-center gap-3 mb-4 flex-wrap">
+           <span className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/20 text-white text-xs font-bold rounded-full uppercase tracking-wider flex items-center gap-1.5">
+             {isTV ? <Tv size={12} className="text-purple-400" /> : <Film size={12} className="text-indigo-400" />}
+             {isTV ? 'TV Series' : 'Movie'}
+           </span>
+           <span className="flex items-center gap-1.5 bg-black/50 backdrop-blur-md px-3 py-1 rounded-full text-yellow-400 text-xs font-bold border border-yellow-400/20">
+             <Star size={14} className="fill-yellow-400" />
+             {item.vote_average?.toFixed(1)} Rating
+           </span>
+        </div>
+        <h1 className="text-4xl md:text-5xl lg:text-7xl font-black text-white mb-4 leading-tight tracking-tight drop-shadow-lg">{title}</h1>
+        <p className="text-gray-300 text-sm md:text-base lg:text-lg line-clamp-3 mb-8 max-w-3xl drop-shadow-md leading-relaxed">{item.overview}</p>
+        <div className="flex items-center gap-4">
+          <button className="flex items-center gap-2 bg-indigo-600 text-white px-8 py-4 rounded-full font-bold hover:bg-indigo-500 transition-all duration-300 hover:shadow-lg hover:shadow-indigo-500/30 active:scale-95">
+            <PlayCircle size={22} className="fill-white/20" />
+            Watch Now
+          </button>
+          <button className="flex items-center gap-2 bg-white/10 backdrop-blur-md text-white px-6 py-4 rounded-full font-bold hover:bg-white/20 transition-all duration-300 active:scale-95">
+            <Info size={22} />
+            Details
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// --- Main Views ---
+
+const HomeView = ({ onSelect }) => {
+  const [trendingMovies, setTrendingMovies] = useState([]);
+  const [trendingTv, setTrendingTv] = useState([]);
+  const [heroItem, setHeroItem] = useState(null);
+
+  useEffect(() => {
+    const fetchHomeData = async () => {
+      try {
+        const [moviesRes, tvRes] = await Promise.all([
+          fetch(`${TMDB_BASE_URL}/trending/movie/week?api_key=${TMDB_KEY}`).then(r => r.json()),
+          fetch(`${TMDB_BASE_URL}/trending/tv/week?api_key=${TMDB_KEY}`).then(r => r.json())
+        ]);
+        
+        const movies = moviesRes.results.map(m => ({ ...m, media_type: 'movie' }));
+        const tvShows = tvRes.results.map(t => ({ ...t, media_type: 'tv' }));
+        
+        setTrendingMovies(movies);
+        setTrendingTv(tvShows);
+        
+        // Pick a random highly-rated item for the hero banner
+        const allTrending = [...movies, ...tvShows].filter(item => item.backdrop_path && item.vote_average > 7);
+        if (allTrending.length > 0) {
+          setHeroItem(allTrending[Math.floor(Math.random() * allTrending.length)]);
+        }
+      } catch (error) {
+        console.error("Error fetching home data:", error);
+      }
+    };
+    
+    fetchHomeData();
+  }, []);
+
+  return (
+    <div className="pb-10">
+      <HeroBanner item={heroItem} onClick={onSelect} />
+      <HorizontalList title="Trending Movies" items={trendingMovies} onSelect={onSelect} />
+      <HorizontalList title="Trending TV Shows" items={trendingTv} onSelect={onSelect} />
+    </div>
+  );
+};
+
+const SearchView = ({ onSelect }) => {
+  const [query, setQuery] = useState('');
+  const [results, setResults] = useState([]);
+  const [isSearching, setIsSearching] = useState(false);
+
+  useEffect(() => {
+    const delayDebounceFn = setTimeout(async () => {
+      if (!query.trim()) {
+        setResults([]);
+        return;
+      }
+      setIsSearching(true);
+      try {
+        const res = await fetch(`${TMDB_BASE_URL}/search/multi?api_key=${TMDB_KEY}&query=${encodeURIComponent(query)}`);
+        const data = await res.json();
+        // Filter out people, keep only movies and tv
+        setResults(data.results.filter(item => item.media_type !== 'person' && item.poster_path));
+      } catch (error) {
+        console.error("Error searching:", error);
+      } finally {
+        setIsSearching(false);
+      }
+    }, 500); // 500ms debounce
+
+    return () => clearTimeout(delayDebounceFn);
+  }, [query]);
+
+  return (
+    <div className="container mx-auto px-4 lg:px-8 py-8 md:py-12 min-h-screen">
+      <div className="max-w-3xl mx-auto mb-12">
+        <h1 className="text-3xl md:text-4xl font-black text-white mb-6 text-center">Discover</h1>
+        <div className="relative group">
+          <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+            <Search size={22} className="text-gray-400 group-focus-within:text-indigo-500 transition-colors" />
+          </div>
+          <input
+            type="text"
+            className="w-full bg-gray-900/50 backdrop-blur-md border-2 border-gray-800 text-white rounded-2xl py-4 pl-12 pr-4 focus:outline-none focus:border-indigo-500 focus:bg-gray-900 transition-all duration-300 text-lg placeholder-gray-500 shadow-xl"
+            placeholder="Search for movies, TV shows..."
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {isSearching && (
+        <div className="flex justify-center my-20">
+          <div className="w-10 h-10 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+        </div>
+      )}
+
+      {!isSearching && results.length > 0 && (
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 md:gap-6">
+          {results.map(item => (
+            <MovieCard key={item.id} item={item} onClick={onSelect} />
+          ))}
+        </div>
+      )}
+
+      {!isSearching && query && results.length === 0 && (
+        <div className="text-center text-gray-400 my-20">
+          <Info size={48} className="mx-auto mb-4 opacity-20" />
+          <p className="text-xl">No results found for "{query}"</p>
+        </div>
+      )}
+      
+      {!query && results.length === 0 && (
+        <div className="text-center text-gray-500 my-20 flex flex-col items-center">
+          <Search size={64} className="mb-6 opacity-10" />
+          <p className="text-lg max-w-md">Type a movie or TV show name above to start discovering amazing content.</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+const DetailsView = ({ item, onBack }) => {
+  const isMovie = item.media_type === 'movie' || !item.media_type && item.title;
+  const title = item.title || item.name;
+  const date = item.release_date || item.first_air_date;
+  const year = date ? date.split('-')[0] : 'N/A';
+  
+  const [tvDetails, setTvDetails] = useState(null);
+  const [activeSeason, setActiveSeason] = useState(1);
+  const [episodes, setEpisodes] = useState([]);
+  const [activeEpisode, setActiveEpisode] = useState(1);
+  const [isLoadingSeason, setIsLoadingSeason] = useState(false);
+
+  const playerRef = useRef(null);
+
+  // Fetch full TV details to get season info
+  useEffect(() => {
+    if (!isMovie) {
+      fetch(`${TMDB_BASE_URL}/tv/${item.id}?api_key=${TMDB_KEY}`)
+        .then(res => res.json())
+        .then(data => {
+          setTvDetails(data);
+          // Auto-select first available season (avoiding season 0 'Specials' if possible)
+          if (data.seasons && data.seasons.length > 0) {
+            const defaultSeason = data.seasons.find(s => s.season_number === 1) || data.seasons[0];
+            setActiveSeason(defaultSeason.season_number);
+          }
+        });
+    }
+  }, [item.id, isMovie]);
+
+  // Fetch episodes when activeSeason changes
+  useEffect(() => {
+    if (!isMovie && activeSeason !== null) {
+      setIsLoadingSeason(true);
+      fetch(`${TMDB_BASE_URL}/tv/${item.id}/season/${activeSeason}?api_key=${TMDB_KEY}`)
+        .then(res => res.json())
+        .then(data => {
+          setEpisodes(data.episodes || []);
+          setIsLoadingSeason(false);
+          // If the current active episode is not in this season, reset to episode 1
+          if (data.episodes && data.episodes.length > 0) {
+            setActiveEpisode(data.episodes[0].episode_number);
+          }
+        })
+        .catch(() => setIsLoadingSeason(false));
+    }
+  }, [item.id, isMovie, activeSeason]);
+
+  // Embed URL generation matching vidsrc-embed.ru documentation perfectly
+  const embedUrl = isMovie
+    ? `https://vidsrc-embed.ru/embed/movie?tmdb=${item.id}`
+    : `https://vidsrc-embed.ru/embed/tv?tmdb=${item.id}&season=${activeSeason}&episode=${activeEpisode}`;
+
+  const handleEpisodeClick = (epNum) => {
+    setActiveEpisode(epNum);
+    // Smooth scroll to player when an episode is clicked
+    if (playerRef.current) {
+      playerRef.current.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  };
+
+  return (
+    <div className="pb-20 animate-in fade-in duration-500">
+      {/* Backdrop Header */}
+      <div className="relative w-full h-[40vh] md:h-[50vh]">
+        <img 
+          src={item.backdrop_path ? `${IMG_ORIGINAL}${item.backdrop_path}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=0a0c10&color=1f2937&size=1000`}
+          alt={title}
+          className="w-full h-full object-cover"
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-[#0a0c10] via-[#0a0c10]/80 to-[#0a0c10]/20" />
+        
+        {/* Back Button positioned absolutely over header */}
+        <div className="absolute top-6 left-4 lg:left-8 z-10">
+          <button 
+            onClick={onBack} 
+            className="flex items-center gap-2 bg-black/40 hover:bg-black/70 backdrop-blur-md text-white px-4 py-2 rounded-full transition-all border border-white/10 shadow-lg group"
+          >
+            <ArrowLeft size={18} className="group-hover:-translate-x-1 transition-transform" />
+            <span className="font-medium">Back</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="container mx-auto px-4 lg:px-8 -mt-32 md:-mt-48 relative z-10">
+        <div className="flex flex-col md:flex-row gap-8 lg:gap-12 mb-12">
+          {/* Poster */}
+          <div className="w-48 md:w-64 lg:w-72 flex-shrink-0 mx-auto md:mx-0 rounded-2xl overflow-hidden shadow-2xl border border-gray-800">
+            <img 
+              src={item.poster_path ? `${IMG_BASE}${item.poster_path}` : `https://ui-avatars.com/api/?name=${encodeURIComponent(title)}&background=random&size=500`}
+              alt={title}
+              className="w-full h-auto object-cover"
+            />
+          </div>
+
+          {/* Info */}
+          <div className="flex-grow pt-4 md:pt-16 lg:pt-24 text-center md:text-left">
+            <div className="flex items-center justify-center md:justify-start gap-3 mb-4 flex-wrap">
+              <span className="px-3 py-1 bg-white/10 backdrop-blur-md border border-white/10 text-white text-xs font-bold rounded-md uppercase tracking-wider">
+                {isMovie ? 'Movie' : 'TV Series'}
+              </span>
+              <span className="text-gray-400 font-medium">{year}</span>
+              <span className="flex items-center gap-1 text-yellow-400 font-bold bg-yellow-400/10 px-2 py-0.5 rounded-md">
+                <Star size={14} className="fill-yellow-400" />
+                {item.vote_average?.toFixed(1)}
+              </span>
+            </div>
+            <h1 className="text-3xl md:text-4xl lg:text-5xl font-black text-white mb-6 leading-tight">{title}</h1>
+            <p className="text-gray-300 text-sm md:text-base leading-relaxed max-w-4xl">{item.overview || "No overview available for this title."}</p>
+          </div>
+        </div>
+
+        {/* Video Player Section */}
+        <div ref={playerRef} className="w-full max-w-6xl mx-auto bg-gray-900 rounded-2xl overflow-hidden shadow-2xl border border-gray-800 mb-12 min-h-[300px]">
+          <div className="bg-gray-950 p-4 border-b border-gray-800 flex items-center gap-3">
+            <PlayCircle size={20} className="text-indigo-500" />
+            <span className="font-bold text-white tracking-wide">
+              {isMovie ? 'Now Playing' : `Playing: Season ${activeSeason} • Episode ${activeEpisode}`}
+            </span>
+          </div>
+          <div className="relative w-full aspect-video bg-black">
+            {/* key prop forces iframe remount when url changes, preventing caching issues */}
+            <iframe 
+              key={embedUrl}
+              src={embedUrl}
+              allowFullScreen
+              className="absolute top-0 left-0 w-full h-full border-0"
+              title="Video Player"
+            />
+          </div>
+        </div>
+
+        {/* TV Show Episodes UI */}
+        {!isMovie && tvDetails && tvDetails.seasons && (
+          <div className="max-w-6xl mx-auto">
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-2">
+              <Tv size={24} className="text-indigo-500" />
+              Seasons & Episodes
+            </h2>
+            
+            {/* Seasons selector */}
+            <div className="flex gap-3 overflow-x-auto pb-4 mb-6 hide-scrollbar">
+              {tvDetails.seasons.filter(s => s.season_number > 0).map(season => (
+                <button
+                  key={season.season_number}
+                  onClick={() => setActiveSeason(season.season_number)}
+                  className={`px-5 py-2.5 rounded-xl font-bold whitespace-nowrap transition-all duration-300 ${
+                    activeSeason === season.season_number 
+                    ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/30 transform scale-105' 
+                    : 'bg-gray-900 text-gray-400 hover:bg-gray-800 hover:text-white border border-gray-800'
+                  }`}
+                >
+                  Season {season.season_number}
+                </button>
+              ))}
+            </div>
+
+            {/* Episodes List */}
+            {isLoadingSeason ? (
+              <div className="flex justify-center py-12">
+                 <div className="w-8 h-8 border-4 border-indigo-500 border-t-transparent rounded-full animate-spin"></div>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                {episodes.map(ep => {
+                  const isActive = activeEpisode === ep.episode_number;
+                  return (
+                    <div
+                      key={ep.episode_number}
+                      onClick={() => handleEpisodeClick(ep.episode_number)}
+                      className={`group p-3 rounded-2xl cursor-pointer flex gap-4 transition-all duration-300 border ${
+                        isActive 
+                        ? 'bg-indigo-900/30 border-indigo-500/50 shadow-lg shadow-indigo-900/20' 
+                        : 'bg-gray-900/50 border-gray-800 hover:bg-gray-800 hover:border-gray-700'
+                      }`}
+                    >
+                      <div className="w-28 sm:w-32 flex-shrink-0 relative rounded-xl overflow-hidden aspect-video bg-gray-800">
+                        <img 
+                          src={ep.still_path ? `${IMG_BASE}${ep.still_path}` : `https://ui-avatars.com/api/?name=S${activeSeason}E${ep.episode_number}&background=1f2937&color=fff&size=320`} 
+                          alt={ep.name} 
+                          className={`w-full h-full object-cover transition-transform duration-500 ${!isActive && 'group-hover:scale-110'}`} 
+                        />
+                        {isActive && (
+                          <div className="absolute inset-0 bg-indigo-600/40 flex items-center justify-center backdrop-blur-[1px]">
+                            <PlayCircle size={24} className="text-white shadow-lg" />
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex flex-col justify-center pr-2 py-1">
+                        <div className={`font-bold text-sm line-clamp-2 ${isActive ? 'text-indigo-400' : 'text-gray-200 group-hover:text-white'}`}>
+                          {ep.episode_number}. {ep.name}
+                        </div>
+                        <div className="text-xs text-gray-500 mt-1.5 flex items-center gap-1.5">
+                          <Calendar size={10} />
+                          {ep.air_date ? ep.air_date.split('-')[0] : 'N/A'}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
+// --- App Container ---
+
+export default function App() {
+  const [view, setView] = useState('home'); // 'home', 'search', 'details'
+  const [selectedItem, setSelectedItem] = useState(null);
+
+  // Bookmark, Favicon aur SEO Meta Tags inject karne ke liye useEffect
+  useEffect(() => {
+    // Website ka title set karein
+    document.title = "Cinephiler Paradox | Movies & TV Shows";
+
+    // SVG base64 ya data URI favicon ke liye (Violet-Fuchsia-Orange gradient ke sath Infinity logo)
+    const faviconUrl = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100"><defs><linearGradient id="g" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="%237c3aed"/><stop offset="50%" stop-color="%23d946ef"/><stop offset="100%" stop-color="%23f97316"/></linearGradient></defs><rect width="100" height="100" rx="20" fill="url(%23g)"/><text x="50" y="68" font-family="Arial" font-size="60" font-weight="bold" fill="white" text-anchor="middle">∞</text></svg>';
+
+    // Meta tags update ya create karne ka function
+    const setHeadElement = (tagType, attrName, attrValue, contentAttr, content) => {
+      let element = document.querySelector(`${tagType}[${attrName}="${attrValue}"]`);
+      if (!element) {
+        element = document.createElement(tagType);
+        element.setAttribute(attrName, attrValue);
+        document.head.appendChild(element);
+      }
+      element.setAttribute(contentAttr, content);
+    };
+
+    // Icons add karein (Bookmarks aur Mobile ke liye)
+    setHeadElement('link', 'rel', 'icon', 'href', faviconUrl);
+    setHeadElement('link', 'rel', 'apple-touch-icon', 'href', faviconUrl);
+    
+    // Theme color (Browser toolbar color ke liye)
+    setHeadElement('meta', 'name', 'theme-color', 'content', '#0a0c10');
+    
+    // Open Graph tags (Social media par link share karne ke liye)
+    setHeadElement('meta', 'property', 'og:title', 'content', 'Cinephiler Paradox');
+    setHeadElement('meta', 'property', 'og:description', 'content', 'Discover and watch the best trending movies and TV shows.');
+    setHeadElement('meta', 'property', 'og:image', 'content', faviconUrl);
+  }, []);
+
+  // Scroll to top when view changes
+  useEffect(() => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }, [view, selectedItem]);
+
+  const handleSelect = (item) => {
+    setSelectedItem(item);
+    setView('details');
+  };
+
+  const handleBack = () => {
+    setSelectedItem(null);
+    setView('home'); // default back to home, could be improved with history state
+  };
+
+  return (
+    <div className="min-h-screen bg-[#0a0c10] text-white font-sans selection:bg-indigo-500/30">
+      <ScrollbarStyles />
+      <Navbar view={view} setView={setView} />
+      
+      <main className="min-h-[calc(100vh-4rem)]">
+        {view === 'home' && <HomeView onSelect={handleSelect} />}
+        {view === 'search' && <SearchView onSelect={handleSelect} />}
+        {view === 'details' && selectedItem && <DetailsView item={selectedItem} onBack={handleBack} />}
+      </main>
+      
+      {/* Simple Footer */}
+      <footer className="border-t border-gray-900 bg-[#06080a] py-8 text-center text-gray-500 text-sm mt-auto">
+        <div className="container mx-auto flex flex-col items-center justify-center gap-2">
+          <div className="flex items-center gap-2 text-gray-400 font-bold mb-2">
+            <InfinityIcon size={18} className="text-fuchsia-500" /> 
+            <span className="bg-clip-text text-transparent bg-gradient-to-r from-violet-400 to-orange-400">Cinephiler Paradox</span>
+          </div>
+          <p>Powered by TMDB • Video delivery by vidsrc</p>
+          <p className="text-xs opacity-50 mt-2">&copy; {new Date().getFullYear()} Cinephiler Paradox. All rights reserved.</p>
+        </div>
+      </footer>
+    </div>
+  );
+}
